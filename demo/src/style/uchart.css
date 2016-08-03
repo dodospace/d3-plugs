@@ -1,0 +1,13 @@
+#container {
+    padding: 20px;
+    height: 70px;
+    /*width: 1000px;*/
+}
+
+body {
+    background: #2a61a1;
+}
+
+.stack rect {
+    cursor: pointer;
+}
