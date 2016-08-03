@@ -33,7 +33,6 @@ http://host:8005
 ```javascript
     "scripts": {
         "build": "./node_modules/.bin/webpack --config webpack/webpack.build.config.js --progress --colors",
-        "dev": "./node_modules/.bin/webpack-dev-server --config webpack/webpack.dev.config.js --progress --colors --inline --hot --host 10.1.240.18",
         "local": "./node_modules/.bin/webpack-dev-server --config webpack/webpack.dev.config.js --progress --colors --inline --hot"
     }
 ```
