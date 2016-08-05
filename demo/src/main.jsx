@@ -11,45 +11,75 @@
 // require('./common/keywords.js')  // 键盘事件
 // require('./common/drag.js') // 拖拽事件
 // require('./common/zoom.js') // 缩放事件
-
+window.$ = require('jquery');
 // require('./common/stack.js')
 require('./style/uchart.css');
 require('./style/xis.css')
 import uStack from './uStack.js'
 var dataset = [{
-    name: 'PC',
-    color: 'blue',
-    data: [100, 200, 30, 50, 120, 100, 200, 30, 50, 120, 100, 200, 30, 50, 120]
+    name: '错误事件数',
+    color: '#ed3f1d',
+    data: [0, 200, 30, 50, 120, 100, 200, 30, 50, 120, 100, 200, 30, 50, 120, 32]
 }, {
-    name: 'SmartPhone',
-    color: 'red',
-    data: [60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 320]
+    name: '警告事件数',
+    color: '#ffef3f',
+    data: [60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 45]
 }, {
-    name: 'Software',
-    color: 'orange',
-    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
+    name: '提醒事件数',
+    color: '#9ea0b6',
+    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 200]
 },
 {
-    name: 'Name',
-    color: 'yellow',
-    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
+    name: '正常事件数',
+    color: '#48c644',
+    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 123]
 }];
 
-var times = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015];
+var newData = [{
+    name: '错误事件数',
+    color: '#ed3f1d',
+    data: [0, 200, 30, 50, 120, 0, 200, 30, 50, 120, 100, 200, 30, 50, 210]
+}, {
+    name: '警告事件数',
+    color: '#ffef3f',
+    data: [60, 220, 0, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 89]
+}, {
+    name: '提醒事件数',
+    color: '#9ea0b6',
+    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 0, 120, 20, 90, 10]
+},
+{
+    name: '正常事件数',
+    color: '#48c644',
+    data: [312, 141, 20, 90, 80, 100, 220, 20, 90, 80, 90, 30, 20, 90, 70]
+}];
+
+// var _data = newData.slice(0, 4);
+// _data[1] = 'Gushaohua'
+// console.log(newData);
+// console.log(_data);
+
+var times = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016];
 
 var opts = {
     xAxis: {
         categories: times
     },
     style: {
-        height: 300
+        height: 200
         // width: 1000
     },
     series: dataset,
     tooltip: {
         formatter: function(value){
-            var s = 'Gushaohua';
-            console.log(this);
+            var s = '<p style="margin:0 0 5px 0;">' + this.x + '</p>';
+            $.each(this.points, function () {
+                if(this.data != 0) {
+                    s += '<p style="margin:2px 0;">' + '<i style="display:inline-block;width:2px;height:8px;background:' + this.color + ';margin-right:5px;"></i>' + this.name + ': ' + this.data + '个</p>';
+                } else {
+                    s += '';
+                }
+            }); 
             return s;
         }
     },
@@ -61,6 +91,18 @@ var opts = {
 }
 var myChart = new uStack('#container', opts);
 
+myChart.setData(newData);
+
+// var a = { name: 'zhuenl'};
+// var b;
+
+// function deepCopy(a){
+//     return a;
+// }
+// b = deepCopy(a);
+// b.name = 'Gushaohua'
+// console.log(a);
+// console.log(b);
 
 // var arr = [1, 3, 5, 7, 9, 11, 13, 15];
 

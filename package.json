@@ -25,6 +25,7 @@
     "d3-tip": "^0.6.7",
     "file-loader": "^0.8.5",
     "history": "^2.0.1",
+    "immutable": "^3.8.1",
     "jquery": "^2.2.2",
     "json-loader": "^0.5.4",
     "less": "^2.6.1",
