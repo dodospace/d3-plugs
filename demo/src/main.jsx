@@ -19,20 +19,20 @@ import uStack from './uStack.js'
 var dataset = [{
     name: '错误事件数',
     color: '#ed3f1d',
-    data: [0, 200, 30, 50, 120, 100, 200, 30, 50, 120, 100, 200, 30, 50, 120, 32]
+    data: [0, 200, 30, 50, 120, 100, 200, 30, 50, 120, 100, 200, 30, 50, 120]
 }, {
     name: '警告事件数',
     color: '#ffef3f',
-    data: [60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 45]
+    data: [60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 320]
 }, {
     name: '提醒事件数',
     color: '#9ea0b6',
-    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 200]
+    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
 },
 {
     name: '正常事件数',
     color: '#48c644',
-    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 123]
+    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
 }];
 
 var newData = [{
@@ -47,11 +47,6 @@ var newData = [{
     name: '提醒事件数',
     color: '#9ea0b6',
     data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 0, 120, 20, 90, 10]
-},
-{
-    name: '正常事件数',
-    color: '#48c644',
-    data: [312, 141, 20, 90, 80, 100, 220, 20, 90, 80, 90, 30, 20, 90, 70]
 }];
 
 // var _data = newData.slice(0, 4);
@@ -59,7 +54,7 @@ var newData = [{
 // console.log(newData);
 // console.log(_data);
 
-var times = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016];
+var times = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015];
 
 var opts = {
     xAxis: {
@@ -84,14 +79,89 @@ var opts = {
         }
     },
     events: {
-        // click: function (value, index) {
-        //     // alert('Click Event')
-        // }
+        click: function (obj) {
+            return newData;          
+        }
     }
 }
 var myChart = new uStack('#container', opts);
 
-myChart.setData(newData);
+var render = document.getElementById('render');
+var resize = document.getElementById('resize');
+var left = document.getElementById('left');
+var right = document.getElementById('right');
+var btn1 = document.getElementById('red');
+var btn2 = document.getElementById('yellow');
+var btn3 = document.getElementById('grey');
+var btn4 = document.getElementById('green');
+
+render.addEventListener('click', function() {           
+    myChart.reflow(newData);
+})
+resize.addEventListener('click', function() {           
+    myChart.setData(dataset);
+})
+left.addEventListener('click', function() {           
+    myChart.setData('left', newData);
+})
+right.addEventListener('click', function() {           
+    myChart.setData('right',dataset);
+})
+btn1.addEventListener('click', function() { 
+    if($(this).hasClass('active')) {
+        $(this).removeClass('active')
+        myChart.show(0);
+    } else {
+        $(this).addClass('active')
+        myChart.hide(0);
+    }
+})
+btn2.addEventListener('click', function() {           
+    if($(this).hasClass('active')) {
+        $(this).removeClass('active')
+        myChart.show(1);
+    } else {
+        $(this).addClass('active')
+        myChart.hide(1);
+    }
+})
+btn3.addEventListener('click', function() {           
+    if($(this).hasClass('active')) {
+        $(this).removeClass('active')
+        myChart.show(2);
+    } else {
+        $(this).addClass('active')
+        myChart.hide(2);
+    }
+})
+btn4.addEventListener('click', function() {           
+    if($(this).hasClass('active')) {
+        $(this).removeClass('active')
+        myChart.show(3);
+    } else {
+        $(this).addClass('active')
+        myChart.hide(3);
+    }
+})
+
+function setItem() {
+    for (var i = 0; i < dataset.length; i++) {
+        dataset[i].data.shift();
+        dataset[i].data.push(Math.random() * 200);
+    }
+}
+// var i = 1;
+// setInterval(function(){
+//     setItem();
+//     times.shift();
+//     times.push(2015 + i);
+//     i++;
+//     // console.log(dataset);
+//     myChart.setData(dataset);
+//     myChart.setCategories(times);
+    
+    
+// }, 1000)
 
 // var a = { name: 'zhuenl'};
 // var b;

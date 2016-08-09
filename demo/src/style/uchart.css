@@ -11,3 +11,44 @@ body {
 .stack rect {
     cursor: pointer;
 }
+
+a {
+    color: #fff;
+    text-decoration: underline;
+    list-style: none;
+    display: inline-block;
+    padding: 5px 10px;
+    border: 1px solid #fff;
+}
+
+#red,
+#yellow,
+#grey,
+#green {
+    padding: 10px;
+    margin: 0 0 0 10px;
+    border: 3px solid #fff;
+}
+
+#red.active,
+#yellow.active,
+#grey.active,
+#green.active {
+    border-color: #000;
+}
+
+#red {
+    background: #ed3f1d;
+}
+
+#yellow {
+    background: #ffef3f;
+}
+
+#grey {
+    background: #9ea0b6;
+}
+
+#green {
+    background: #48c644;
+}

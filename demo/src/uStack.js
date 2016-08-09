@@ -18,6 +18,9 @@ import Immutable from 'immutable'
         factory(root, $, d3);
     }
 }(typeof window !== "undefined" ? window : {}, function(root, $, d3, noGlobal) {
+    // var uStack,
+    //     SVGElement;
+
     var uStack = function(element, opts) {
         if (typeof element == 'string') {
             this.element = element;
@@ -39,11 +42,19 @@ import Immutable from 'immutable'
 
         this.g;
 
-        this.groups;
+        this.updateGroup;
+        this.exitGroup;
+        this.enterGroup;
+
+        this.updateRect;
+        this.exitRect;
+        this.enterRect;
 
         this.times = opts.xAxis.categories;
 
-        this.data = this.formatData(opts.series);
+        this.data = opts.series;
+        this.tempData = deepCopy(this.data);
+
 
         this.WIDTH = opts.style ? (opts.style.width ? opts.style.width : $(element).width()) : $(element).width();
         this.HEIGHT = opts.style ? (opts.style.height ? opts.style.height : this.defaultHeight) : this.defaultHeight;
@@ -59,6 +70,8 @@ import Immutable from 'immutable'
         this.xScale;
         this.yScale;
 
+        this.colors = d3.scale.category10();
+
         this.xAxisLine;
         this.yAxisLine;
 
@@ -72,6 +85,10 @@ import Immutable from 'immutable'
         addEvent.call(this.tip, element);
 
         this.setData = this.setData;
+        this.reflow = this.reflow;
+        this.setCategories = this.setCategories;
+        this.hide = this.hide;
+        this.show = this.show;
 
         // 注册resize事件
         this.resize = this.resize();
@@ -86,14 +103,17 @@ import Immutable from 'immutable'
                 .attr('width', this.WIDTH)
                 .attr('height', this.HEIGHT).call(this.tip);
             this.g = this.svg.append('g');
-            this.getStack();
+            var dataset = this.formatData(this.data);
+            this.getStack(dataset);
             this.createScale();
-            this.drawRect();
+            this.events();
+            this.upAnimate();
             this.createAxis();
 
             window.onresize = this.resize();
         },
-        getStack: function() {
+        // 堆栈布局
+        getStack: function(dataset) {
             var stack = d3.layout.stack()
                 .values(function(d) {
                     return d.data;
@@ -104,11 +124,13 @@ import Immutable from 'immutable'
                 .y(function(d) {
                     return d.data;
                 });
-            this.stack = stack(this.data);
+            this.stack = stack(dataset);
 
         },
+        // 格式化来源数据
         formatData: function(data) {
-            var items = data.reverse();
+            var items = deepCopy(data);
+            items.reverse();
             _.map(items, function(item, i) {
                 _.map(item.data, function(value, index) {
                     item.data[index] = { 'data': value }
@@ -116,9 +138,7 @@ import Immutable from 'immutable'
             })
             return items;
         },
-        getItemData: function(data) {
-            console.log(this.stack);
-        },
+        // 定义x，y坐标系的比例尺
         createScale: function() {
             var _length = this.stack.length;
             this.maxProfit = d3.max(this.stack[_length - 1].data, function(d) {
@@ -133,6 +153,7 @@ import Immutable from 'immutable'
                 .range([0, this.yRangeWidth])
 
         },
+        // 创建坐标轴
         createAxis: function() {
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
@@ -142,7 +163,6 @@ import Immutable from 'immutable'
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
                 .call(xAxis);
 
-            // this.yScale.range([this.yRangeWidth, 0]);
             var _yScale = d3.scale.linear()
                 .domain([0, this.maxProfit])
                 .range([this.yRangeWidth, 0]);
@@ -150,28 +170,48 @@ import Immutable from 'immutable'
                 .scale(_yScale)
                 .orient('left')
                 .ticks(4)
-            this.svg.append('g')
+            this.yAxisLine = this.svg.append('g')
                 .attr('class', 'axis')
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
                 .call(yAxis);
         },
+        // 绘制矩形
         drawRect: function() {
             var _this = this;
-            this.groups = this.g.selectAll('g')
-                .data(_this.stack)
-                .enter()
-                .append('g')
-                .attr('class', 'groups')
-                .attr('fill', function(d) {
-                    return d.color;
+            this.updateGroup = this.g.selectAll('g')
+                .data(_this.stack);
+            this.enterGroup = this.updateGroup.enter();
+            this.exitGroup = this.updateGroup.exit();
+
+            this.updateGroup.attr('class', 'groups')
+                .attr('fill', function(d, i) {
+                    if (d.color) {
+                        return d.color;
+                    } else {
+                        return _this.colors(i)
+                    }
                 });
-            var rects = this.groups.selectAll('rect')
+
+            this.enterGroup.append('g')
+                .attr('class', 'groups')
+                .attr('fill', function(d, i) {
+                    if (d.color) {
+                        return d.color;
+                    } else {
+                        return _this.colors(i)
+                    }
+                });
+
+            this.exitGroup.remove();
+
+            this.updateRect = this.updateGroup.selectAll('rect')
                 .data(function(d) {
                     return d.data;
                 })
-                .enter()
-                .append('rect')
-                .attr('x', function(d, i) {
+            this.enterRect = this.updateRect.enter();
+            this.exitRect = this.updateRect.exit();
+
+            this.updateRect.attr('x', function(d, i) {
                     return _this.xScale(_this.times[i]);
                 })
                 .attr('y', function(d) {
@@ -184,29 +224,39 @@ import Immutable from 'immutable'
                     return _this.yScale(d.y);
                 });
 
-            rects.on('mouseover', function(d, i) {
+            this.enterRect.append('rect')
+                .attr('x', function(d, i) {
+                    return _this.xScale(_this.times[i]);
+                })
+                .attr('y', function(d) {
+                    return _this.yRangeWidth - _this.yScale(d.y0 + d.y);
+                })
+                .attr('width', function(d) {
+                    return _this.xScale.rangeBand();
+                })
+                .attr('height', function(d) {
+                    return _this.yScale(d.y);
+                });
+            this.exitRect.remove();
+        },
+
+        upAnimate: function() {
+            this.updateGroup.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')scale(1, 0)')
+                .transition()
+                .duration(1000)
+                .attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
+        },
+        // 注册事件
+        events: function() {
+            this.drawRect();
+            var _this = this;
+            this.updateRect.on('mouseover', function(d, i) {
                     d3.selectAll('.groups').selectAll('rect').select(function(da, k) {
                         return i == k ? this : null;
                     }).style("opacity", "0.8");
-                    var rangeData = 0,
-                        arr = [];
-                    _.map(_this.stack, function(item) {
-                        var obj = {
-                            color: item.color,
-                            data: item.data[i].data,
-                            name: item.name
-                        }
-                        rangeData += item.data[i].data;
-                        arr.push(obj)
-                    });
-
-                    var retrunObj = {
-                        points: arr.reverse(),
-                        x: _this.times[i]
-                    };
-
-                    var content = _this.opts.tooltip.formatter.call(retrunObj);
-                    var _height = d3.max(_this.yScale.range()) - Math.floor(_this.yScale(rangeData) / 2);
+                    var returnObj = _this.getPoints(i);
+                    var content = _this.opts.tooltip.formatter.call(returnObj);
+                    var _height = d3.max(_this.yScale.range()) - Math.floor(_this.yScale(returnObj.h) / 2);
 
                     if (i < 2) {
                         _this.tip.offset([0, 10]).direction('e').show(content);
@@ -231,13 +281,25 @@ import Immutable from 'immutable'
                         return i == k ? this : null;
                     }).style("opacity", "1");
                 })
-
-            this.groups.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')scale(1, 0)')
-                .transition()
-                .duration(1000)
-                .attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
+                .on('click', function(d, i) {
+                    var obj = _this.getPoints(i);
+                    var _data = _this.opts.events.click.call(_this, obj);
+                    _this.data = _data;
+                    _this.tempData = deepCopy(_this.data);
+                    if (_data && _data.length > 0) {
+                        _this.renderData(_data);
+                        var _x = d3.select(this).attr('x');
+                        _this.updateRect.attr('x', _x)
+                            .transition()
+                            .duration(400)
+                            .attr('x', function(d, i) {
+                                return _this.xScale(_this.times[i]);
+                            })
+                    }
+                })
         },
 
+        // 定义图形的最大x，y的值
         getOptions: function() {
             return {
                 x: this.WIDTH - this.defaultPadding.left - this.defaultPadding.right,
@@ -245,9 +307,38 @@ import Immutable from 'immutable'
             }
         },
 
-        updateRect: function() {
+        getPoints: function(index) {
+            var rangeData = 0,
+                arr = [];
+            _.map(this.stack, function(item) {
+                var obj = {
+                    color: item.color,
+                    data: item.data[index].data,
+                    name: item.name
+                }
+                rangeData += item.data[index].data;
+                arr.push(obj)
+            });
+
+            var returnObj = {
+                points: arr.reverse(),
+                x: this.times[index],
+                h: rangeData
+            };
+            return returnObj;
+        },
+
+        getEmptyData: function(data) {
+            var arr = [];
+            for (var i = 0; i < data.length; i++) {
+                arr[i] = 0;
+            }
+            return arr;
+        },
+        // 更新矩形
+        updateResize: function() {
             var _this = this;
-            this.groups.selectAll('rect')
+            this.updateGroup.selectAll('rect')
                 .transition()
                 .attr('x', function(d, i) {
                     return _this.xScale(_this.times[i]);
@@ -257,6 +348,10 @@ import Immutable from 'immutable'
                 });
         },
 
+        setCategories: function(times) {
+            this.times = times;
+        },
+        // 渲染
         render: function(element) {
             this.WIDTH = $(element).width();
             this.svg.attr('width', this.WIDTH);
@@ -272,10 +367,10 @@ import Immutable from 'immutable'
             this.xAxisLine.transition()
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
                 .call(xAxis);
-            this.updateRect();
+            this.updateResize();
             addEvent.call(this.tip, element);
         },
-
+        // 屏幕resize事件
         resize: function() {
             var timer = null;
             var previous = null;
@@ -290,22 +385,82 @@ import Immutable from 'immutable'
             }
         },
 
-        left: function() {
+        reflow: function(data) {
+            if (data && data.length > 0) {
+                this.renderData(data);
+                this.data = data;
+                this.tempData = deepCopy(this.data);
+            }
+            this.upAnimate();
+        },
 
+        left: function() {
+            var _this = this;
+            this.updateRect.attr('x', this.xRangWidth)
+                .transition()
+                .duration(400)
+                .attr('x', function(d, i) {
+                    return _this.xScale(_this.times[i]);
+                })
         },
 
         right: function() {
-            console.log(this.data);
+            var _this = this;
+            this.updateRect.attr('x', '0')
+                .transition()
+                .duration(400)
+                .attr('x', function(d, i) {
+                    return _this.xScale(_this.times[i]);
+                })
         },
 
-        steping: function() {
-            console.log(this.data);
+        hide: function(index) {
+            if (!this.data[index]) throw new Error('Data error, Checkout Your Data Resources');
+            var arr = this.data[index].data;
+            var emptyData = this.getEmptyData(arr);
+            this.tempData[index].data = emptyData;
+            this.renderData(this.tempData);
+        },
+
+        show: function(index) {
+            if (!this.data[index]) throw new Error('Data error, Checkout Your Data Resources');
+            this.tempData[index].data = this.data[index].data;
+            this.renderData(this.tempData);
+        },
+
+        updateShowAndHide: function() {
+
+        },
+
+        renderData: function(data) {
+            var dataset = this.formatData(data);
+            this.getStack(dataset);
+            this.createScale();
+            var _this = this;
+            this.drawRect();
+            var xAxis = d3.svg.axis()
+                .scale(this.xScale)
+                .orient('bottom');
+            var _yScale = d3.scale.linear()
+                .domain([0, this.maxProfit])
+                .range([this.yRangeWidth, 0]);
+            var yAxis = d3.svg.axis()
+                .scale(_yScale)
+                .orient('left')
+                .ticks(4)
+            this.yAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
+                .call(yAxis);
+            this.xAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
+                .call(xAxis);
+
         },
 
         setData: function() {
-            var type = '',
+            let type = '',
                 data,
                 args = arguments;
+
+            if (arguments.length == 0) return;
 
             if (typeof args[0] == 'string') {
                 type = args[0];
@@ -323,24 +478,44 @@ import Immutable from 'immutable'
             }
 
             var _this = this;
-            this.data = data ? this.formatData(data) : this.data;
-            
+            this.data = data;
+            this.tempData = deepCopy(this.data);
+            this.renderData(data);
+            this.updateGroup.attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
+
             switch (type) {
                 case 'right':
-                    _this.open();
+                    _this.right();
                     break;
                 case 'left':
                     _this.left();
                     break;
                 default:
-                    _this.steping();
                     break;
             }
         }
     }
 
-
-
+    // 深度复制
+    function deepCopy(parent, child) {
+        child = child || [];
+        for (var i in parent) {
+            if (parent.hasOwnProperty(i)) {
+                //检测当前属性是否为对象 
+                if (typeof parent[i] === "object") {
+                    //如果当前属性为对象，还要检测它是否为数组
+                    //这是因为数组的字面量表示和对象的字面量表示不同
+                    //前者是[],而后者是{}
+                    child[i] = (Object.prototype.toString.call(parent[i]) === "[object Array]") ? [] : {};
+                    //递归调用extend
+                    deepCopy(parent[i], child[i]);
+                } else {
+                    child[i] = parent[i];
+                }
+            }
+        }
+        return child;
+    }
 
     function addEvent(ele) {
         var _this = this,
