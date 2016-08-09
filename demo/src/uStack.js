@@ -2,7 +2,6 @@ import d3 from 'd3'
 import $ from 'jquery'
 import _ from 'lodash'
 import tip from 'd3-tip'
-import Immutable from 'immutable'
 
 (function(root, factory) {
     if (typeof module === "object" && typeof module.exports === "object") {
