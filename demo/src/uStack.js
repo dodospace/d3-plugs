@@ -35,12 +35,14 @@ import tip from './index'
 
         this.defaultHeight = 200;
 
-        this.defaultPadding = { left: 50, right: 50, top: 30, bottom: 30 };
+        this.defaultPadding = { left: 40, right: 30, top: 40, bottom: 30 };
 
         this.stack;
 
         this.g;
         this.newG;
+
+        this.size = opts ? opts.yAxis.size : 4;
 
         this.updateGroup;
         this.exitGroup;
@@ -77,9 +79,11 @@ import tip from './index'
         this.xAxisLine;
         this.yAxisLine;
 
-        this.hoverTag;
+        this.hoverRect;
+        this.hoverG;
 
         this.timer = null;
+
 
         this.tip = tip().style('opacity', 0).attr('class', 'd3-tips').html(function(d) {
             return d;
@@ -101,19 +105,21 @@ import tip from './index'
 
     uStack.prototype = {
         init: function() {
-
             this.svg = d3.select(this.element)
                 .append('svg')
                 .attr('class', 'stack-svg')
                 .attr('width', this.WIDTH)
                 .attr('height', this.HEIGHT).call(this.tip);
-            this.g = this.svg.append('g');
-            var dataset = this.formatData(this.data);
+
+            var dataset = this.formatData(this.data);            
             this.stack = this.getStack(dataset);
             this.createScale();
+            this.createYAix();
+            this.g = this.svg.append('g');                       
+            this.createAxis();
             this.events(this.g);
             this.upAnimate();
-            this.createAxis();
+            
 
             window.onresize = this.resize();
         },
@@ -166,7 +172,7 @@ import tip from './index'
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
                 .orient('bottom')
-                .tickSize(5, -10)
+                .tickSize(5, 0)
                 .tickFormat(function (d) {
                     return _this.formatter(d, _this.diffTime);
                 })
@@ -178,15 +184,108 @@ import tip from './index'
 
             var _yScale = d3.scale.linear()
                 .domain([0, this.maxProfit])
-                .range([this.yRangeWidth, 0]);
-            var yAxis = d3.svg.axis()
-                .scale(_yScale)
-                .orient('left')
-                .ticks(4)
+                .range([this.yRangeWidth, 0]);         
+        },
+        getYAxis: function () {
+            var yArr = [];
+            for (var i = 0; i < (this.size + 1); i++) {
+                yArr.push((this.yRangeWidth / this.size) * i)
+            }
+            return yArr;
+        },
+        createHoverRect: function () {
+            if (this.hoverG) this.hoverG.remove();
+            this.hoverG = this.g.append('g')
+                .attr('class', 'hover')
+                .attr('fill', '#fff')
+                .attr('transform', 'translate(' + this.defaultPadding.left + ',0)')
+                .data(this.stack);
+
+            var _this = this;
+            
+            this.hoverRect = this.hoverG.selectAll('rect')
+                .data(function (d) {
+                    return d.data;
+                })
+            
+            var hRectEnter = this.hoverRect.enter();
+            var hRectExit = this.hoverRect.exit();
+            var _y = this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth;
+
+            this.hoverRect.attr('x', function(d, i) {
+                    return _this.xScale(_this.times[i]);
+                })
+                .attr('y', function(d) {
+                    return _y;
+                })
+                .attr('opacity', '0')
+                .attr('width', function(d) {
+                    return _this.xScale.rangeBand();
+                })
+                .attr('height', function(d) {
+                    return _this.yRangeWidth;
+                });
+
+            hRectEnter.append('rect')
+                .attr('x', function(d, i) {
+                    return _this.xScale(_this.times[i]);
+                })
+                .attr('y', function(d) {
+                    return _y;
+                })
+                .attr('opacity', '0')
+                .attr('width', function(d) {
+                    return _this.xScale.rangeBand();
+                })
+                .attr('height', function(d) {
+                    return _this.yRangeWidth;
+                });
+
+            hRectExit.remove();
+        },
+        createYAix: function (dataset) {
+            var dataset = this.getYAxis();
+            var _this = this;
+            this.yAxisLine && this.yAxisLine.remove();
             this.yAxisLine = this.svg.append('g')
-                .attr('class', 'axis')
-                .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
-                .call(yAxis);
+                .attr('class', 'axis y-axis')
+            var yUpdate = this.yAxisLine.selectAll('g')
+                .attr('class', 'tick')
+                .data(dataset)
+                .enter()
+                .append('g')
+
+            yUpdate.append('line')
+                .attr('x1', 0)
+                .attr('y1', function (d) {
+                    return d;
+                })
+                .attr('x2', this.xRangWidth)
+                .attr('y2', function (d) {
+                    return d;
+                })
+
+            yUpdate.append('text')
+                // .data(textData)
+                .attr('x', 0)
+                .attr('y', function (d) {
+                    return d;
+                })
+                .attr('text-anchor', 'end')
+                .attr('dx', function () {
+                    return -5;
+                })
+                .attr('dy', '0.5em')
+            var textData = dataset.reverse();
+            var _yScale = d3.scale.linear()
+                .domain([this.maxProfit, 0])
+                .range([this.yRangeWidth, 0]);  
+            yUpdate.select('text')
+                .data(textData)
+                .text(function (d) {
+                    return _yScale.invert(d);
+                })            
+            this.yAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
         },
         // 绘制矩形
         drawRect: function(ele) {
@@ -258,63 +357,20 @@ import tip from './index'
                 .duration(1000)
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
         },
+        
         // 注册事件
         events: function(ele) {
             this.drawRect(ele);
+            this.createHoverRect();
             var _this = this;
             var flag;
-            this.updateRect.on('mouseover', function(d, i) {
-                    var _x = d3.select(this).attr('x');
-                    var _w = d3.select(this).attr('width');
-
-                    var data =[{
-                        x: Number(_x) + _this.defaultPadding.left,
-                        y: _this.HEIGHT - _this.defaultPadding.bottom - _this.yRangeWidth,
-                        width: _w,
-                        height: _this.yRangeWidth
-                    }];
-                    _this.hoverTag = _this.svg.selectAll('rect.hover').data(data);
-                    var hoverEnter = _this.hoverTag.enter();
-                    var hoverExit = _this.hoverTag.exit();
-                    _this.hoverTag
-                        .attr('x', function(d) {
-                            return d.x
-                        })
-                        .attr('y', function(d) {
-                            return d.y
-                        })
-                        .attr('width', function(d) {
-                            return d.width
-                        })
-                        .attr('height', function(d) {
-                            return d.height
-                        })
-                        .attr('fill', '#fff')
-                        .style("opacity", "0.2");
-                    
-                    hoverEnter.append('rect')
-                        .attr('class', 'hover')
-                        .attr('x', function(d) {
-                            return d.x
-                        })
-                        .attr('y', function(d) {
-                            return d.y
-                        })
-                        .attr('width', function(d) {
-                            return d.width
-                        })
-                        .attr('height', function(d) {
-                            return d.height
-                        })
-                        .attr('fill', '#fff')
-                        .style("opacity", "0.2");
-
-                    hoverExit.remove();
-
+            this.hoverRect.on('mouseover', function(d, i) {
+                console.log(1);
+                    d3.select(this).attr('opacity', '0.1');
                     var returnObj = _this.getPoints(i);
                     var content = _this.opts.tooltip.formatter.call(returnObj);
                     var _height = d3.max(_this.yScale.range()) - Math.floor(_this.yScale(returnObj.h) / 2);
-                    if (i < 2) {
+                    if (i < 3) {
                         _this.tip.offset([0, 10]).direction('e').show(content);
                         if (_this.timer) clearTimeout(_this.timer);
                         _this.timer = setTimeout(function() {
@@ -331,16 +387,13 @@ import tip from './index'
                     $('.d3-tips').css('top', (top + 'px'));
                     var _y = $('.stack-svg').offset().top;
                 })
-                .on('mouseout', function(d, i) {
-                    _this.hoverTag.on('mouseout', function () {
-                        _this.hoverTag.remove()
-                    })  
-                    .on('click', function () {
-                        _this.hoverTag.remove()
-                        var obj = _this.getPoints(i);
-                        var _x = d3.select(this).attr('x');
-                        _this.opts.events.click.call(_this, obj, _x);                     
-                    })             
+                .on('click', function (d, i) {
+                    var obj = _this.getPoints(i);
+                    var _x = d3.select(this).attr('x');
+                    _this.opts.events.click.call(_this, obj, _x);                     
+                })
+                .on('mouseout', function (d, i) {
+                    d3.select(this).attr('opacity', '0');
                 })
         },
 
@@ -364,7 +417,7 @@ import tip from './index'
                 rangeData += item.data[index].data;
                 arr.push(obj)
             });
-
+            console.log(this.times);
             var returnObj = {
                 points: arr.reverse(),
                 x: this.times[index],
@@ -374,6 +427,7 @@ import tip from './index'
             return returnObj;
         },
 
+        // 数据清0
         getEmptyData: function(data) {
             var arr = [];
             for (var i = 0; i < data.length; i++) {
@@ -381,6 +435,7 @@ import tip from './index'
             }
             return arr;
         },
+
         // 更新矩形
         updateResize: function() {
             var _this = this;
@@ -398,6 +453,7 @@ import tip from './index'
             this.times = times;
             this.diffTime = times[1] - this.times[0];
         },
+
         // 渲染
         render: function(element) {
             var _this = this;
@@ -405,13 +461,15 @@ import tip from './index'
             this.svg.attr('width', this.WIDTH);
             this.xRangWidth = this.getOptions().x;
             this.yRangeWidth = this.getOptions().y;
+            d3.select('g.y-axis').selectAll('line')
+                .attr('x2', this.xRangWidth);
             this.xScale = d3.scale
                 .ordinal()
                 .domain(this.times)
                 .rangeBands([0, this.xRangWidth], 0.5);
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
-                .tickSize(5, -10)
+                .tickSize(5, 0)
                 .tickFormat(function (d) {
                     return _this.formatter(d, _this.diffTime);
                 })
@@ -422,6 +480,7 @@ import tip from './index'
             this.updateResize();
             addEvent.call(this.tip, element);
         },
+
         // 屏幕resize事件
         resize: function() {
             var timer = null;
@@ -477,6 +536,7 @@ import tip from './index'
             var _this = this;
             this.data = _data;
             this.times = data.time;
+            this.diffTime = data.time[1] - data.time[0];
             this.tempData = deepCopy(this.data);
             if (filters.length > 0) {
                 _.map(filters, function (item) {
@@ -488,7 +548,7 @@ import tip from './index'
             }
             if (_data && _data.length > 0) {
                 this.renderData(this.tempData);
-                this.updateRect.attr('x', Number(x) - this.defaultPadding.left)
+                this.updateRect.attr('x', Number(x))
                     .transition()
                     .duration(500)
                     .attr('x', function(d, i) {
@@ -511,31 +571,27 @@ import tip from './index'
             this.renderData(this.tempData);
         },
 
-        updateShowAndHide: function() {
-
-        },
-
         renderData: function(data, type) {
-            var dataset = this.formatData(data);
+            var dataset = this.formatData(data);            
             this.stack = this.getStack(dataset);
             this.createScale();
+            var _data = this.getYAxis().reverse();
+            var _yScale = d3.scale.linear()
+                .domain([this.maxProfit, 0])
+                .range([this.yRangeWidth, 0]);
+            d3.select('g.y-axis').selectAll('text')
+                .data(_data)
+                .text(function (d) {
+                    return _yScale.invert(d);
+                })
             var _this = this;            
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
-                .tickSize(5, -10)
+                .tickSize(5, 0)
                 .tickFormat(function (d) {
                     return _this.formatter(d, _this.diffTime);
                 })
                 .orient('bottom');
-            var _yScale = d3.scale.linear()
-                .domain([0, this.maxProfit])
-                .range([this.yRangeWidth, 0]);
-            var yAxis = d3.svg.axis()
-                .scale(_yScale)
-                .orient('left')
-                .ticks(4)
-            this.yAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
-                .call(yAxis);
             
             if (type == 'left' || type == 'right') {
                 this.newG = this.svg.append('g');
@@ -616,6 +672,7 @@ import tip from './index'
     function addEvent(ele) {
         var _this = this,
             $svg = $('.stack-svg');
+        if(!$svg.length) return;
         var _width = $svg.width(),
             _height = $svg.height(),
             _x = $svg.offset().left,
@@ -626,8 +683,6 @@ import tip from './index'
         document.onmousemove = function(ev) {
             ev = ev || window.event;
             var mousePos = mousePosition(ev);
-            // console.log('鼠标的X坐标是' + mousePos.x + ',鼠标的Y坐标是' + mousePos.y);
-            // console.log('SVG的X范围是' + _x + '-' + maxX);
             if (!((mousePos.x > _x && mousePos.x < maxX) && (mousePos.y > _y && mousePos.y < maxY))) {
                 $('.d3-tips').css({
                     opacity: 0,

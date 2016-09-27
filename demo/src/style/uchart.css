@@ -1,7 +1,13 @@
 #container {
     padding: 20px;
     height: 70px;
+    background: rgba(0, 0, 0, 0.2);
     /*width: 1100px;*/
+    margin: 50px;
+}
+.btns {
+    margin:  10px 50px;
+    text-align: center;
 }
 
 body {
@@ -12,11 +18,20 @@ body {
 
 a {
     color: #fff;
-    text-decoration: underline;
     list-style: none;
     display: inline-block;
     padding: 5px 10px;
-    border: 1px solid #fff;
+    margin: 0 5px;
+}
+.btn {
+    background: rgba(0, 0, 0, 0.3);
+    text-decoration: none;
+    font-family: '微软雅黑';
+    width: 120px;
+    font-size: 14px;
+}
+.btn:hover {
+    background: rgba(0, 0, 0, 0.4);
 }
 
 #red,
@@ -26,6 +41,7 @@ a {
     padding: 10px;
     margin: 0 0 0 10px;
     border: 3px solid #fff;
+    vertical-align: -8px;
 }
 
 #red.active,
@@ -34,6 +50,14 @@ a {
 #green.active {
     border-color: #000;
 }
+
+#red:hover,
+#yellow:hover,
+#grey:hover,
+#green:hover {
+    border-color: #999;
+}
+
 
 #red {
     background: #ed3f1d;

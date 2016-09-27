@@ -1,6 +1,9 @@
+window.$ = require('jquery');
+require('./Format.js');
 require('./style/uchart.css');
 require('./style/xis.css')
 import uStack from './uStack.js'
+
 
 var dataset = [{
     name: '错误事件数',
@@ -24,15 +27,20 @@ var dataset = [{
 var newData = [{
     name: '错误事件数',
     color: '#ed3f1d',
-    data: [0, 200, 30, 50, 120, 0, 200, 30, 50, 120, 100, 200]
+    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
 }, {
     name: '警告事件数',
     color: '#ffef3f',
-    data: [60, 220, 0, 150, 320, 60, 220, 90, 150, 320, 60, 220]
+    data: [0, 200, 30, 50, 120, 100, 200, 30, 50, 120, 100, 200, 30, 50, 120]
 }, {
     name: '提醒事件数',
     color: '#9ea0b6',
-    data: [300, 120, 20, 90, 80, 300, 120, 20, 90, 80, 0, 120]
+    data: [312, 120, 20, 90, 80, 300, 120, 20, 90, 80, 300, 120, 20, 90, 80]
+},
+{
+    name: '正常事件数',
+    color: '#48c644',
+    data: [60, 220, 90, 150, 320, 60, 220, 90, 150, 320, 60, 220, 90, 150, 320]
 }];
 
 var times = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015];
@@ -44,6 +52,9 @@ var opts = {
         formatter: function(value, diff){
             return value;
         }
+    },
+    yAxis: {
+        size: 4
     },
     style: {
         height: 200
@@ -67,11 +78,8 @@ var opts = {
         }
     },
     events: {
-        click: function (obj) {
-            return {
-                data: newData,
-                time: timed
-            };          
+        click: function (obj, x) {
+            if (obj.h != 0) refresh(x);                    
         }
     }
 }
@@ -86,8 +94,20 @@ var btn2 = document.getElementById('yellow');
 var btn3 = document.getElementById('grey');
 var btn4 = document.getElementById('green');
 
+function refresh(x) {
+    var filters = {
+        hide: [0],
+        show: [1, 2]
+    }
+    var data = {
+        data: dataset,
+        time: times
+    }
+    myChart.middle(data, x ,filters);
+}   
+
 render.addEventListener('click', function() {   
-    myChart.setCategories(timed);        
+    myChart.setCategories(times);        
     myChart.reflow(newData);
 })
 resize.addEventListener('click', function() {        
@@ -95,8 +115,8 @@ resize.addEventListener('click', function() {
     myChart.setData(dataset);
 })
 left.addEventListener('click', function() {       
-    myChart.setCategories(timed);    
-    myChart.setData('left', newData);
+    myChart.setCategories(times);    
+    myChart.setData('left', dataset);
 })
 right.addEventListener('click', function() {    
     myChart.setCategories(times);          
