@@ -4,6 +4,9 @@ var baseConfig = require('./base.config')
 var path = require('path');
 var webpack = require('webpack');
 
+// var Dashboard = require('webpack-dashboard');
+// var DashboardPlugin = require('webpack-dashboard/plugin');
+// var dashboard = new Dashboard();
 
 var config = _.merge(baseConfig, {
     entry: _.merge({
@@ -23,9 +26,13 @@ var config = _.merge(baseConfig, {
         devtool: 'eval',
         port: 8009,
         hot: true,
+        quiet: true,
         inline: true
     },
-    devtool: 'eval'
+    devtool: 'eval',
+    // plugins: [
+    //     new DashboardPlugin(dashboard.setData)
+    // ]
 
 });
 

@@ -1,7 +1,7 @@
 import d3 from 'd3'
 import $ from 'jquery'
 import _ from 'lodash'
-import tip from 'd3-tip'
+import tip from './index'
 
 (function(root, factory) {
     if (typeof module === "object" && typeof module.exports === "object") {
@@ -21,7 +21,7 @@ import tip from 'd3-tip'
     //     SVGElement;
 
     var uStack = function(element, opts) {
-        if (typeof element == 'string') {
+        if (typeof element == 'string' || typeof element == 'object') {
             this.element = element;
         } else {
             throw new Error('uStack need a DOM container');
@@ -40,6 +40,7 @@ import tip from 'd3-tip'
         this.stack;
 
         this.g;
+        this.newG;
 
         this.updateGroup;
         this.exitGroup;
@@ -50,6 +51,8 @@ import tip from 'd3-tip'
         this.enterRect;
 
         this.times = opts.xAxis.categories;
+        this.formatter = opts.xAxis.formatter;
+        this.diffTime = this.times[1] - this.times[0];
 
         this.data = opts.series;
         this.tempData = deepCopy(this.data);
@@ -74,9 +77,11 @@ import tip from 'd3-tip'
         this.xAxisLine;
         this.yAxisLine;
 
+        this.hoverTag;
+
         this.timer = null;
 
-        this.tip = tip().style('opacity', 0).attr('class', 'd3-tip').html(function(d) {
+        this.tip = tip().style('opacity', 0).attr('class', 'd3-tips').html(function(d) {
             return d;
         });
 
@@ -88,6 +93,7 @@ import tip from 'd3-tip'
         this.setCategories = this.setCategories;
         this.hide = this.hide;
         this.show = this.show;
+        this.middle = this.middle;
 
         // 注册resize事件
         this.resize = this.resize();
@@ -103,9 +109,9 @@ import tip from 'd3-tip'
                 .attr('height', this.HEIGHT).call(this.tip);
             this.g = this.svg.append('g');
             var dataset = this.formatData(this.data);
-            this.getStack(dataset);
+            this.stack = this.getStack(dataset);
             this.createScale();
-            this.events();
+            this.events(this.g);
             this.upAnimate();
             this.createAxis();
 
@@ -123,7 +129,7 @@ import tip from 'd3-tip'
                 .y(function(d) {
                     return d.data;
                 });
-            this.stack = stack(dataset);
+            return stack(dataset);
 
         },
         // 格式化来源数据
@@ -140,25 +146,33 @@ import tip from 'd3-tip'
         // 定义x，y坐标系的比例尺
         createScale: function() {
             var _length = this.stack.length;
-            this.maxProfit = d3.max(this.stack[_length - 1].data, function(d) {
+            var max = d3.max(this.stack[_length - 1].data, function(d) {
                 return d.y0 + d.y
             });
+            this.maxProfit = getFormatNum(max, 4)
+            var time = this.times;
             this.xScale = d3.scale
                 .ordinal()
-                .domain(this.times)
+                .domain(time)
                 .rangeBands([0, this.xRangWidth], 0.5);
+            
             this.yScale = d3.scale.linear()
                 .domain([0, this.maxProfit])
                 .range([0, this.yRangeWidth])
-
         },
         // 创建坐标轴
         createAxis: function() {
+            var _this = this;
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
-                .orient('bottom');
-            this.xAxisLine = this.svg.append('g')
-                .attr('class', 'axis')
+                .orient('bottom')
+                .tickSize(5, -10)
+                .tickFormat(function (d) {
+                    return _this.formatter(d, _this.diffTime);
+                })
+                
+            this.xAxisLine = this.g.append('g')
+                .attr('class', 'axis x-axis')
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
                 .call(xAxis);
 
@@ -175,13 +189,12 @@ import tip from 'd3-tip'
                 .call(yAxis);
         },
         // 绘制矩形
-        drawRect: function() {
+        drawRect: function(ele) {
             var _this = this;
-            this.updateGroup = this.g.selectAll('g')
+            this.updateGroup = ele.selectAll('g.groups')
                 .data(_this.stack);
-            this.enterGroup = this.updateGroup.enter();
-            this.exitGroup = this.updateGroup.exit();
-
+            var enterGroup = this.updateGroup.enter();
+            var exitGroup = this.updateGroup.exit();
             this.updateGroup.attr('class', 'groups')
                 .attr('fill', function(d, i) {
                     if (d.color) {
@@ -191,7 +204,7 @@ import tip from 'd3-tip'
                     }
                 });
 
-            this.enterGroup.append('g')
+            enterGroup.append('g')
                 .attr('class', 'groups')
                 .attr('fill', function(d, i) {
                     if (d.color) {
@@ -201,14 +214,14 @@ import tip from 'd3-tip'
                     }
                 });
 
-            this.exitGroup.remove();
+            exitGroup.remove();
 
             this.updateRect = this.updateGroup.selectAll('rect')
                 .data(function(d) {
                     return d.data;
                 })
-            this.enterRect = this.updateRect.enter();
-            this.exitRect = this.updateRect.exit();
+            var enterRect = this.updateRect.enter();
+            var exitRect = this.updateRect.exit();
 
             this.updateRect.attr('x', function(d, i) {
                     return _this.xScale(_this.times[i]);
@@ -223,7 +236,7 @@ import tip from 'd3-tip'
                     return _this.yScale(d.y);
                 });
 
-            this.enterRect.append('rect')
+            enterRect.append('rect')
                 .attr('x', function(d, i) {
                     return _this.xScale(_this.times[i]);
                 })
@@ -236,7 +249,7 @@ import tip from 'd3-tip'
                 .attr('height', function(d) {
                     return _this.yScale(d.y);
                 });
-            this.exitRect.remove();
+            exitRect.remove();
         },
 
         upAnimate: function() {
@@ -246,55 +259,88 @@ import tip from 'd3-tip'
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
         },
         // 注册事件
-        events: function() {
-            this.drawRect();
+        events: function(ele) {
+            this.drawRect(ele);
             var _this = this;
+            var flag;
             this.updateRect.on('mouseover', function(d, i) {
-                    d3.selectAll('.groups').selectAll('rect').select(function(da, k) {
-                        return i == k ? this : null;
-                    }).style("opacity", "0.8");
+                    var _x = d3.select(this).attr('x');
+                    var _w = d3.select(this).attr('width');
+
+                    var data =[{
+                        x: Number(_x) + _this.defaultPadding.left,
+                        y: _this.HEIGHT - _this.defaultPadding.bottom - _this.yRangeWidth,
+                        width: _w,
+                        height: _this.yRangeWidth
+                    }];
+                    _this.hoverTag = _this.svg.selectAll('rect.hover').data(data);
+                    var hoverEnter = _this.hoverTag.enter();
+                    var hoverExit = _this.hoverTag.exit();
+                    _this.hoverTag
+                        .attr('x', function(d) {
+                            return d.x
+                        })
+                        .attr('y', function(d) {
+                            return d.y
+                        })
+                        .attr('width', function(d) {
+                            return d.width
+                        })
+                        .attr('height', function(d) {
+                            return d.height
+                        })
+                        .attr('fill', '#fff')
+                        .style("opacity", "0.2");
+                    
+                    hoverEnter.append('rect')
+                        .attr('class', 'hover')
+                        .attr('x', function(d) {
+                            return d.x
+                        })
+                        .attr('y', function(d) {
+                            return d.y
+                        })
+                        .attr('width', function(d) {
+                            return d.width
+                        })
+                        .attr('height', function(d) {
+                            return d.height
+                        })
+                        .attr('fill', '#fff')
+                        .style("opacity", "0.2");
+
+                    hoverExit.remove();
+
                     var returnObj = _this.getPoints(i);
                     var content = _this.opts.tooltip.formatter.call(returnObj);
                     var _height = d3.max(_this.yScale.range()) - Math.floor(_this.yScale(returnObj.h) / 2);
-
                     if (i < 2) {
                         _this.tip.offset([0, 10]).direction('e').show(content);
                         if (_this.timer) clearTimeout(_this.timer);
                         _this.timer = setTimeout(function() {
-                            _this.tip.attr('class', 'd3-tip tip-animation e')
+                            _this.tip.attr('class', 'd3-tips tip-animation e')
                         }, 400)
                     } else {
                         _this.tip.offset([0, -10]).direction('w').show(content);
                         if (_this.timer) clearTimeout(_this.timer);
                         _this.timer = setTimeout(function() {
-                            _this.tip.attr('class', 'd3-tip tip-animation w')
+                            _this.tip.attr('class', 'd3-tips tip-animation w')
                         }, 400)
                     }
-                    var top = $('.stack-svg').offset().top + _this.defaultPadding.top + _height - ($('.d3-tip').innerHeight());
-                    $('.d3-tip').css('top', (top + 'px'));
-
+                    var top = $('.stack-svg').offset().top + _this.defaultPadding.top  + _height - ($('.d3-tips').innerHeight());
+                    $('.d3-tips').css('top', (top + 'px'));
                     var _y = $('.stack-svg').offset().top;
                 })
                 .on('mouseout', function(d, i) {
-                    d3.selectAll('.groups').selectAll('rect').select(function(da, k) {
-                        return i == k ? this : null;
-                    }).style("opacity", "1");
-                })
-                .on('click', function(d, i) {
-                    var obj = _this.getPoints(i);
-                    var _data = _this.opts.events.click.call(_this, obj);
-                    _this.data = _data;
-                    _this.tempData = deepCopy(_this.data);
-                    if (_data && _data.length > 0) {
-                        _this.renderData(_data);
+                    _this.hoverTag.on('mouseout', function () {
+                        _this.hoverTag.remove()
+                    })  
+                    .on('click', function () {
+                        _this.hoverTag.remove()
+                        var obj = _this.getPoints(i);
                         var _x = d3.select(this).attr('x');
-                        _this.updateRect.attr('x', _x)
-                            .transition()
-                            .duration(400)
-                            .attr('x', function(d, i) {
-                                return _this.xScale(_this.times[i]);
-                            })
-                    }
+                        _this.opts.events.click.call(_this, obj, _x);                     
+                    })             
                 })
         },
 
@@ -313,7 +359,7 @@ import tip from 'd3-tip'
                 var obj = {
                     color: item.color,
                     data: item.data[index].data,
-                    name: item.name
+                    name: item.name,
                 }
                 rangeData += item.data[index].data;
                 arr.push(obj)
@@ -322,7 +368,8 @@ import tip from 'd3-tip'
             var returnObj = {
                 points: arr.reverse(),
                 x: this.times[index],
-                h: rangeData
+                h: rangeData,
+                diffTime: this.diffTime
             };
             return returnObj;
         },
@@ -349,9 +396,11 @@ import tip from 'd3-tip'
 
         setCategories: function(times) {
             this.times = times;
+            this.diffTime = times[1] - this.times[0];
         },
         // 渲染
         render: function(element) {
+            var _this = this;
             this.WIDTH = $(element).width();
             this.svg.attr('width', this.WIDTH);
             this.xRangWidth = this.getOptions().x;
@@ -362,6 +411,10 @@ import tip from 'd3-tip'
                 .rangeBands([0, this.xRangWidth], 0.5);
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
+                .tickSize(5, -10)
+                .tickFormat(function (d) {
+                    return _this.formatter(d, _this.diffTime);
+                })
                 .orient('bottom');
             this.xAxisLine.transition()
                 .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
@@ -394,23 +447,54 @@ import tip from 'd3-tip'
         },
 
         left: function() {
-            var _this = this;
-            this.updateRect.attr('x', this.xRangWidth)
+            this.g.attr('transform', 'scale(1, 1)')
                 .transition()
-                .duration(400)
-                .attr('x', function(d, i) {
-                    return _this.xScale(_this.times[i]);
-                })
+                .duration(1000)
+                .attr('transform', 'translate(' + (this.xRangWidth + this.defaultPadding.left) + ', 0)scale(0, 1)')
+                .remove()
+            this.newG.attr('transform', 'translate(' + (this.defaultPadding.left) + ', 0)scale(0, 1)')
+                .transition()
+                .duration(1000)
+                .attr('transform', 'translate(0, 0)scale(1, 1)');
+            this.g = this.newG;
         },
 
         right: function() {
-            var _this = this;
-            this.updateRect.attr('x', '0')
+            this.g.attr('transform', 'scale(1, 1)')
                 .transition()
-                .duration(400)
-                .attr('x', function(d, i) {
-                    return _this.xScale(_this.times[i]);
-                })
+                .duration(1000)
+                .attr('transform', 'translate(' + (this.defaultPadding.left) + ', 0)scale(0, 1)')
+                .remove()
+            this.newG.attr('transform', 'translate(' + (this.xRangWidth + this.defaultPadding.left) + ', 0)scale(0, 1)')
+                .transition()
+                .duration(1000)
+                .attr('transform', 'translate(0, 0)scale(1, 1)');
+            this.g = this.newG;
+        },
+
+        middle: function(data, x, filters) {
+            var _data = data.data;
+            var _this = this;
+            this.data = _data;
+            this.times = data.time;
+            this.tempData = deepCopy(this.data);
+            if (filters.length > 0) {
+                _.map(filters, function (item) {
+                    const index = Number(item);
+                    var arr = this.data[index].data;
+                    var emptyData = this.getEmptyData(arr);
+                    this.tempData[index].data = emptyData;
+                }.bind(this))
+            }
+            if (_data && _data.length > 0) {
+                this.renderData(this.tempData);
+                this.updateRect.attr('x', Number(x) - this.defaultPadding.left)
+                    .transition()
+                    .duration(500)
+                    .attr('x', function(d, i) {
+                        return _this.xScale(_this.times[i]);
+                    })
+            }
         },
 
         hide: function(index) {
@@ -431,14 +515,17 @@ import tip from 'd3-tip'
 
         },
 
-        renderData: function(data) {
+        renderData: function(data, type) {
             var dataset = this.formatData(data);
-            this.getStack(dataset);
+            this.stack = this.getStack(dataset);
             this.createScale();
-            var _this = this;
-            this.drawRect();
+            var _this = this;            
             var xAxis = d3.svg.axis()
                 .scale(this.xScale)
+                .tickSize(5, -10)
+                .tickFormat(function (d) {
+                    return _this.formatter(d, _this.diffTime);
+                })
                 .orient('bottom');
             var _yScale = d3.scale.linear()
                 .domain([0, this.maxProfit])
@@ -449,9 +536,19 @@ import tip from 'd3-tip'
                 .ticks(4)
             this.yAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom - this.yRangeWidth) + ')')
                 .call(yAxis);
-            this.xAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
-                .call(xAxis);
-
+            
+            if (type == 'left' || type == 'right') {
+                this.newG = this.svg.append('g');
+                this.events(this.newG);
+                this.xAxisLine = this.newG.append('g')
+                    .attr('class', 'axis x-axis')
+                    .attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
+                    .call(xAxis);
+            } else {
+                this.events(this.g);
+                this.xAxisLine.attr('transform', 'translate(' + this.defaultPadding.left + ',' + (this.HEIGHT - this.defaultPadding.bottom) + ')')
+                    .call(xAxis);
+            }
         },
 
         setData: function() {
@@ -479,7 +576,7 @@ import tip from 'd3-tip'
             var _this = this;
             this.data = data;
             this.tempData = deepCopy(this.data);
-            this.renderData(data);
+            this.renderData(data, type);
             this.updateGroup.attr('transform', 'translate(' + this.defaultPadding.left + ',' + this.defaultPadding.top + ')scale(1,1)')
 
             switch (type) {
@@ -532,7 +629,7 @@ import tip from 'd3-tip'
             // console.log('鼠标的X坐标是' + mousePos.x + ',鼠标的Y坐标是' + mousePos.y);
             // console.log('SVG的X范围是' + _x + '-' + maxX);
             if (!((mousePos.x > _x && mousePos.x < maxX) && (mousePos.y > _y && mousePos.y < maxY))) {
-                $('.d3-tip').css({
+                $('.d3-tips').css({
                     opacity: 0,
                 });
                 clearTimeout(_this.timer);
@@ -548,6 +645,59 @@ import tip from 'd3-tip'
                 y: ev.clientY + document.body.scrollTop - document.body.clientTop
             };
         }
+    }
+
+
+    // 整数粒度对齐算法
+    function getFormatNum(num, size) {
+        var average = num / size;
+        var max;
+        if (average > 10) {
+            if (num % size == 0) {
+                var _c = num / size;
+                var arr = average.toString().split('');
+                var value;
+                if (_c % Math.pow(10, (arr.length - 1)) == 0) {
+                    value = arr[0] * Math.pow(10, (arr.length - 1));
+                } else {                
+                    value = format(arr);
+                }      
+                max = value * size;            
+            } else {
+                var arr = Math.floor(num / size).toString().split('');
+                var lastNum = arr[arr.length - 1];
+                arr[arr.length - 1] = Number(lastNum) + 1;
+                var value = format(arr);
+                max = value * size;
+            }
+        } else {
+            if (average == 10 || average > 5) {
+                max = 10 * size;
+            } else {
+                max = 5 * size;
+            }
+        }
+        function format(arr) {        
+            var firstNum = arr[0];
+            var _size;    
+            if (arr.length > 2) {
+                if ((arr[1] == 5 && arr[arr.length - 1] != 0) || arr[1] > 5) {
+                    arr[0] = Number(firstNum) + 1;
+                    _size = arr[0] * Math.pow(10, (arr.length - 1));
+                } else {
+                    _size = (Number(arr[0]) + 0.5) * Math.pow(10, (arr.length - 1));
+                }
+            } else {
+                if (arr[1] > 5) {
+                    arr[0] = Number(firstNum) + 1;
+                    _size = arr[0] * Math.pow(10, (arr.length - 1));
+                } else {
+                    _size = (Number(arr[0]) + 0.5) * Math.pow(10, (arr.length - 1));
+                }
+            }        
+            return _size;
+        }
+        return max;
     }
 
     if (!noGlobal) {
