@@ -1,7 +1,7 @@
-window.$ = require('zepto');
 require('./style/uchart.css');
 require('./style/xis.css')
 import uStack from './uStack.js'
+
 var dataset = [{
     name: '错误事件数',
     color: '#ed3f1d',
@@ -146,60 +146,3 @@ function setItem() {
     }
 }
 
-
-var num = 76;
-
-function getFormatNum(num, size) {
-    var size = size || 4;
-    var average = num / size;
-    var max;
-    if (average > 10) {
-        if (num % size == 0) {
-            var _c = num / size;
-            var arr = average.toString().split('');
-            var value;
-            if (_c % Math.pow(10, (arr.length - 1)) == 0) {
-                value = arr[0] * Math.pow(10, (arr.length - 1));
-            } else {                
-                value = format(arr);
-            }      
-            max = value * size;            
-        } else {
-            var arr = Math.floor(num / size).toString().split('');
-            var lastNum = arr[arr.length - 1];
-            arr[arr.length - 1] = Number(lastNum) + 1;
-            var value = format(arr);
-            max = value * size;
-        }
-    } else {
-        if (average == 10 || average > 5) {
-            max = 10 * size;
-        } else {
-            max = 5 * size;
-        }
-    }
-    function format(arr) {        
-        var firstNum = arr[0];
-        var _size;
-        console.log(arr);     
-        if (arr.length > 2) {
-            if ((arr[1] == 5 && arr[arr.length - 1] != 0) || arr[1] > 5) {
-                arr[0] = Number(firstNum) + 1;
-                _size = arr[0] * Math.pow(10, (arr.length - 1));
-            } else {
-                _size = (Number(arr[0]) + 0.5) * Math.pow(10, (arr.length - 1));
-            }
-        } else {
-            if (arr[1] > 5) {
-                arr[0] = Number(firstNum) + 1;
-                _size = arr[0] * Math.pow(10, (arr.length - 1));
-            } else {
-                _size = (Number(arr[0]) + 0.5) * Math.pow(10, (arr.length - 1));
-            }
-        }        
-        return _size;
-    }
-    return max;
-}
-
-console.log(getFormatNum(133, 3));
